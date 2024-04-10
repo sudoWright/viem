@@ -3,7 +3,8 @@ import { describe, expect, test, vi } from 'vitest'
 import { OffchainLookupExample } from '~test/contracts/generated.js'
 import { baycContractConfig, usdcContractConfig } from '~test/src/abis.js'
 import { createCcipServer } from '~test/src/ccip.js'
-import { accounts, forkBlockNumber } from '~test/src/constants.js'
+import { accounts, forkBlockNumber, localHttpUrl } from '~test/src/constants.js'
+import { blobData, kzg } from '~test/src/kzg.js'
 import {
   deployOffchainLookupExample,
   publicClient,
@@ -16,11 +17,28 @@ import { BaseError } from '../../errors/base.js'
 import { RawContractError } from '../../errors/contract.js'
 import { encodeFunctionData } from '../../utils/abi/encodeFunctionData.js'
 import { trim } from '../../utils/data/trim.js'
-import { parseEther } from '../../utils/unit/parseEther.js'
 import { parseGwei } from '../../utils/unit/parseGwei.js'
 import { wait } from '../../utils/wait.js'
 
-import { call, getRevertErrorData } from './call.js'
+import {
+  http,
+  type Hex,
+  type StateMapping,
+  type StateOverride,
+  createClient,
+  encodeAbiParameters,
+  pad,
+  parseEther,
+  stringToHex,
+  toBlobs,
+  toHex,
+} from '../../index.js'
+import {
+  call,
+  getRevertErrorData,
+  parseAccountStateOverride,
+  parseStateMapping,
+} from './call.js'
 
 const wagmiContractAddress = '0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2'
 const name4bytes = '0x06fdde03'
@@ -67,6 +85,42 @@ describe('ccip', () => {
     await server.close()
   })
 
+  test('ccip disabled', async () => {
+    const server = await createCcipServer()
+    const { contractAddress } = await deployOffchainLookupExample({
+      urls: [`${server.url}/{sender}/{data}`],
+    })
+
+    const calldata = encodeFunctionData({
+      abi: OffchainLookupExample.abi,
+      functionName: 'getAddress',
+      args: ['jxom.viem'],
+    })
+
+    const client = createClient({
+      ccipRead: false,
+      transport: http(localHttpUrl),
+    })
+
+    await expect(() =>
+      call(client, {
+        data: calldata,
+        to: contractAddress!,
+      }),
+    ).rejects.toMatchInlineSnapshot(`
+      [CallExecutionError: Execution reverted with reason: custom error 556f1830:000000000000000000000000124ddf9b…00000000000000000000000000000000 (576 bytes).
+
+      Raw Call Arguments:
+        to:    0x124ddf9bdd2ddad012ef1d5bbd77c00f05c610da
+        data:  0xbf40fac1000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000096a786f6d2e7669656d0000000000000000000000000000000000000000000000
+
+      Details: execution reverted: custom error 556f1830:000000000000000000000000124ddf9b…00000000000000000000000000000000 (576 bytes)
+      Version: viem@1.0.2]
+    `)
+
+    await server.close()
+  })
+
   test('error: invalid signature', async () => {
     const server = await createCcipServer()
     const { contractAddress } = await deployOffchainLookupExample({
@@ -109,6 +163,56 @@ test('args: blockNumber', async () => {
   expect(data).toMatchInlineSnapshot('undefined')
 })
 
+test('args: override', async () => {
+  const fakeName = 'NotWagmi'
+
+  // layout of strings in storage
+  const nameSlot = toHex(0, { size: 32 })
+  const fakeNameHex = toHex(fakeName)
+  // we don't divide by 2 because length must be length * 2 if word is strictly less than 32 bytes
+  const bytesLen = fakeNameHex.length - 2
+
+  expect(bytesLen).toBeLessThanOrEqual(62)
+
+  const slotValue = `${pad(fakeNameHex, { dir: 'right', size: 31 })}${toHex(
+    bytesLen,
+    { size: 1 },
+  ).slice(2)}` as Hex
+
+  const { data } = await call(publicClient, {
+    data: name4bytes,
+    to: wagmiContractAddress,
+    stateOverride: [
+      {
+        address: wagmiContractAddress,
+        stateDiff: [
+          {
+            slot: nameSlot,
+            value: slotValue,
+          },
+        ],
+      },
+    ],
+  })
+
+  expect(data).toMatchInlineSnapshot(
+    `"${encodeAbiParameters([{ type: 'string' }], [fakeName])}"`,
+  )
+})
+
+test.skip('args: blobs', async () => {
+  // TODO: migrate to `publicClient` once 4844 is supported in Anvil.
+  const blobs = toBlobs({ data: stringToHex(blobData) })
+  const { data } = await call(publicClient, {
+    account: sourceAccount.address,
+    blobs,
+    kzg,
+    maxFeePerBlobGas: parseGwei('20'),
+    to: wagmiContractAddress,
+  })
+  expect(data).toMatchInlineSnapshot('undefined')
+})
+
 describe('account hoisting', () => {
   test.skip('no account hoisted', async () => {
     await expect(
@@ -122,7 +226,7 @@ describe('account hoisting', () => {
       Raw Call Arguments:
         to:    0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2
         data:  0xa0712d680000000000000000000000000000000000000000000000000000000000000258
-      
+
       Details: execution reverted: ERC721: mint to the zero address
       Version: viem@1.0.2"
     `)
@@ -147,7 +251,7 @@ describe('errors', () => {
         maxFeePerGas: 2n ** 256n - 1n + 1n,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The fee cap (\`maxFeePerGas\` = 115792089237316195423570985008687907853269984665640564039457584007913.129639936 gwei) cannot be higher than the maximum allowed value (2^256-1).
+      [CallExecutionError: The fee cap (\`maxFeePerGas\` = 115792089237316195423570985008687907853269984665640564039457584007913.129639936 gwei) cannot be higher than the maximum allowed value (2^256-1).
 
       Raw Call Arguments:
         from:          0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
@@ -155,7 +259,7 @@ describe('errors', () => {
         data:          0xa0712d6800000000000000000000000000000000000000000000000000000000000001a4
         maxFeePerGas:  115792089237316195423570985008687907853269984665640564039457584007913.129639936 gwei
 
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
   })
 
@@ -170,7 +274,7 @@ describe('errors', () => {
         gas: 100n,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The amount of gas (100) provided for the transaction exceeds the limit allowed for the block.
+      [CallExecutionError: The amount of gas (100) provided for the transaction exceeds the limit allowed for the block.
 
       Raw Call Arguments:
         from:  0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
@@ -179,7 +283,7 @@ describe('errors', () => {
         gas:   100
 
       Details: intrinsic gas too high -- CallGasCostMoreThanGasLimit
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
 
     await expect(() =>
@@ -236,7 +340,7 @@ describe('errors', () => {
         nonce: 0,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "Nonce provided for the transaction is lower than the current nonce of the account.
+      [CallExecutionError: Nonce provided for the transaction is lower than the current nonce of the account.
       Try increasing the nonce or find the latest nonce with \`getTransactionCount\`.
 
       Raw Call Arguments:
@@ -246,7 +350,7 @@ describe('errors', () => {
         nonce:  0
 
       Details: nonce too low
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
   })
 
@@ -258,7 +362,7 @@ describe('errors', () => {
         value: parseEther('100000'),
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+      [CallExecutionError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
 
       This error could arise when the account does not have enough funds to:
        - pay for the total gas fee,
@@ -275,7 +379,7 @@ describe('errors', () => {
         value:  100000 ETH
 
       Details: Insufficient funds for gas * price + value
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
 
     await expect(() =>
@@ -297,7 +401,7 @@ describe('errors', () => {
         maxPriorityFeePerGas: parseGwei('22'),
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The provided tip (\`maxPriorityFeePerGas\` = 22 gwei) cannot be higher than the fee cap (\`maxFeePerGas\` = 20 gwei).
+      [CallExecutionError: The provided tip (\`maxPriorityFeePerGas\` = 22 gwei) cannot be higher than the fee cap (\`maxFeePerGas\` = 20 gwei).
 
       Raw Call Arguments:
         from:                  0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
@@ -306,7 +410,7 @@ describe('errors', () => {
         maxFeePerGas:          20 gwei
         maxPriorityFeePerGas:  22 gwei
 
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
   })
 
@@ -319,15 +423,15 @@ describe('errors', () => {
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `
-      "Execution reverted with reason: Token ID is taken.
+      [CallExecutionError: Execution reverted with reason: revert: Token ID is taken.
 
       Raw Call Arguments:
         from:  0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
         to:    0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2
         data:  0xa0712d6800000000000000000000000000000000000000000000000000000000000001a4
 
-      Details: execution reverted: Token ID is taken
-      Version: viem@1.0.2"
+      Details: execution reverted: revert: Token ID is taken
+      Version: viem@1.0.2]
     `,
     )
   })
@@ -340,7 +444,7 @@ describe('errors', () => {
         to: wagmiContractAddress,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "Execution reverted for an unknown reason.
+      [CallExecutionError: Execution reverted for an unknown reason.
 
       Raw Call Arguments:
         from:  0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
@@ -348,8 +452,130 @@ describe('errors', () => {
         data:  0xa0712d68
 
       Details: execution reverted
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
+  })
+
+  describe('state overrides error', () => {
+    test('wrong address', async () => {
+      await expect(
+        call(publicClient, {
+          data: name4bytes,
+          to: wagmiContractAddress,
+          stateOverride: [
+            {
+              address: '0x1',
+              stateDiff: [
+                {
+                  slot: `0x${fourTwenty}`,
+                  value: `0x${fourTwenty}`,
+                },
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`
+        [CallExecutionError: Address "0x1" is invalid.
+
+        - Address must be a hex value of 20 bytes (40 hex characters).
+        - Address must match its checksum counterpart.
+         
+        Raw Call Arguments:
+          to:    0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2
+          data:  0x06fdde03
+          State Override:
+            0x1:
+              stateDiff:
+                0x00000000000000000000000000000000000000000000000000000000000001a4: 0x00000000000000000000000000000000000000000000000000000000000001a4
+
+        Version: viem@1.0.2]
+      `)
+    })
+
+    test('duplicate address', async () => {
+      await expect(
+        call(publicClient, {
+          data: name4bytes,
+          to: wagmiContractAddress,
+          stateOverride: [
+            {
+              address: wagmiContractAddress,
+              stateDiff: [
+                {
+                  slot: `0x${fourTwenty}`,
+                  value: `0x${fourTwenty}`,
+                },
+              ],
+            },
+            {
+              address: wagmiContractAddress,
+              stateDiff: [
+                {
+                  slot: `0x${fourTwenty}`,
+                  value: `0x${fourTwenty}`,
+                },
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`
+      [CallExecutionError: State for account "0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2" is set multiple times.
+
+      Raw Call Arguments:
+        to:    0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2
+        data:  0x06fdde03
+        State Override:
+          0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2:
+            stateDiff:
+              0x00000000000000000000000000000000000000000000000000000000000001a4: 0x00000000000000000000000000000000000000000000000000000000000001a4
+          0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2:
+            stateDiff:
+              0x00000000000000000000000000000000000000000000000000000000000001a4: 0x00000000000000000000000000000000000000000000000000000000000001a4
+
+      Version: viem@1.0.2]
+      `)
+    })
+
+    test('pass state and stateDiff', async () => {
+      await expect(
+        call(publicClient, {
+          data: name4bytes,
+          to: wagmiContractAddress,
+          stateOverride: [
+            // @ts-expect-error Cannot pass `state` and `stateDiff` at the same time
+            {
+              address: wagmiContractAddress,
+              stateDiff: [
+                {
+                  slot: `0x${fourTwenty}`,
+                  value: `0x${fourTwenty}`,
+                },
+              ],
+              state: [
+                {
+                  slot: `0x${fourTwenty}`,
+                  value: `0x${fourTwenty}`,
+                },
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`
+        [CallExecutionError: state and stateDiff are set on the same account.
+
+        Raw Call Arguments:
+          to:    0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2
+          data:  0x06fdde03
+          State Override:
+            0xFBA3912Ca04dd458c843e2EE08967fC04f3579c2:
+              state:
+                0x00000000000000000000000000000000000000000000000000000000000001a4: 0x00000000000000000000000000000000000000000000000000000000000001a4
+              stateDiff:
+                0x00000000000000000000000000000000000000000000000000000000000001a4: 0x00000000000000000000000000000000000000000000000000000000000001a4
+
+        Version: viem@1.0.2]
+      `)
+    })
   })
 })
 
@@ -794,5 +1020,126 @@ describe('getRevertErrorData', () => {
         }),
       ),
     ).toBe('0x556f1830')
+  })
+})
+
+describe('parsing overrides', () => {
+  test('state mapping', () => {
+    const stateMapping: StateMapping = [
+      {
+        slot: `0x${fourTwenty}`,
+        value: `0x${fourTwenty}`,
+      },
+    ]
+    expect(parseStateMapping(stateMapping)).toMatchInlineSnapshot(`
+      {
+        "0x${fourTwenty}": "0x${fourTwenty}",
+      }
+    `)
+  })
+
+  test('state mapping: undefined', () => {
+    expect(parseStateMapping(undefined)).toMatchInlineSnapshot('undefined')
+  })
+
+  test('state mapping: invalid key', () => {
+    const stateMapping: StateMapping = [
+      {
+        // invalid bytes length
+        slot: `0x${fourTwenty.slice(0, -1)}`,
+        value: `0x${fourTwenty}`,
+      },
+    ]
+
+    expect(() =>
+      parseStateMapping(stateMapping),
+    ).toThrowErrorMatchingInlineSnapshot(`
+      [InvalidBytesLengthError: Hex is expected to be 66 hex long, but is 65 hex long.
+
+      Version: viem@1.0.2]
+    `)
+  })
+
+  test('state mapping: invalid value', () => {
+    const stateMapping: StateMapping = [
+      {
+        slot: `0x${fourTwenty}`,
+        value: `0x${fourTwenty.slice(0, -1)}`,
+      },
+    ]
+
+    expect(() =>
+      parseStateMapping(stateMapping),
+    ).toThrowErrorMatchingInlineSnapshot(`
+      [InvalidBytesLengthError: Hex is expected to be 66 hex long, but is 65 hex long.
+
+      Version: viem@1.0.2]
+    `)
+  })
+
+  test('args: code', () => {
+    const stateOverride: Omit<StateOverride[number], 'address'> = {
+      code: `0x${fourTwenty}`,
+    }
+
+    expect(parseAccountStateOverride(stateOverride)).toMatchInlineSnapshot(`
+      {
+        "code": "0x${fourTwenty}",
+      }
+    `)
+
+    const emptyStateOverride: Omit<StateOverride[number], 'address'> = {
+      code: undefined,
+    }
+
+    expect(
+      parseAccountStateOverride(emptyStateOverride),
+    ).toMatchInlineSnapshot(`
+      {}
+    `)
+  })
+
+  test('args: balance', () => {
+    const stateOverride: Omit<StateOverride[number], 'address'> = {
+      balance: 1n,
+    }
+
+    expect(parseAccountStateOverride(stateOverride)).toMatchInlineSnapshot(`
+      {
+        "balance": "0x1",
+      }
+    `)
+
+    const emptyStateOverride: Omit<StateOverride[number], 'address'> = {
+      balance: undefined,
+    }
+
+    expect(
+      parseAccountStateOverride(emptyStateOverride),
+    ).toMatchInlineSnapshot(`
+      {}
+    `)
+  })
+
+  test('args: nonce', () => {
+    const stateOverride: Omit<StateOverride[number], 'address'> = {
+      nonce: 1,
+    }
+
+    expect(parseAccountStateOverride(stateOverride)).toMatchInlineSnapshot(`
+      {
+        "nonce": "0x1",
+      }
+    `)
+
+    const emptyStateOverride: Omit<StateOverride[number], 'address'> = {
+      nonce: undefined,
+    }
+
+    expect(
+      parseAccountStateOverride(emptyStateOverride),
+    ).toMatchInlineSnapshot(`
+      {}
+    `)
   })
 })

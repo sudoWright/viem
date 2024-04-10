@@ -3,11 +3,11 @@ import { WebSocket } from 'isows'
 import { assertType, describe, expect, test } from 'vitest'
 
 import { localWsUrl } from '~test/src/constants.js'
+import { testClient } from '~test/src/utils.js'
+import { mine } from '../../actions/test/mine.js'
 import { localhost } from '../../chains/index.js'
 import { wait } from '../../utils/wait.js'
 
-import { testClient } from '~test/src/utils.js'
-import { mine } from '../../test/index.js'
 import { type WebSocketTransport, webSocket } from './webSocket.js'
 
 test('default', () => {
@@ -38,6 +38,7 @@ describe('config', () => {
         },
         "request": [Function],
         "value": {
+          "getRpcClient": [Function],
           "getSocket": [Function],
           "subscribe": [Function],
         },
@@ -63,6 +64,7 @@ describe('config', () => {
         },
         "request": [Function],
         "value": {
+          "getRpcClient": [Function],
           "getSocket": [Function],
           "subscribe": [Function],
         },
@@ -86,6 +88,7 @@ describe('config', () => {
         },
         "request": [Function],
         "value": {
+          "getRpcClient": [Function],
           "getSocket": [Function],
           "subscribe": [Function],
         },
@@ -101,6 +104,12 @@ test('getSocket', async () => {
   expect(socket?.readyState).toBe(WebSocket.OPEN)
 })
 
+test('getRpcClient', async () => {
+  const transport = webSocket(localWsUrl)
+  const socket = await transport({}).value?.getRpcClient()
+  expect(socket).toBeDefined()
+})
+
 test('request', async () => {
   const transport = webSocket(undefined, {
     key: 'jsonRpc',
@@ -112,7 +121,6 @@ test('request', async () => {
       chain: {
         ...localhost,
         rpcUrls: {
-          public: { http: [localWsUrl], webSocket: [localWsUrl] },
           default: { http: [localWsUrl], webSocket: [localWsUrl] },
         },
       },
@@ -131,14 +139,14 @@ test('errors: rpc error', async () => {
   await expect(() =>
     transport.request({ method: 'eth_wagmi' }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-    "Invalid parameters were provided to the RPC method.
+    [InvalidParamsRpcError: Invalid parameters were provided to the RPC method.
     Double check you have provided the correct parameters.
 
     URL: http://localhost
-    Request body: {\\"method\\":\\"eth_wagmi\\"}
+    Request body: {"method":"eth_wagmi"}
 
     Details: data did not match any variant of untagged enum EthRpcCall
-    Version: viem@1.0.2"
+    Version: viem@1.0.2]
   `)
 })
 
@@ -193,9 +201,9 @@ test('throws on bogus subscription', async () => {
 
 test('no url', () => {
   expect(() => webSocket()({})).toThrowErrorMatchingInlineSnapshot(`
-    "No URL was provided to the Transport. Please provide a valid RPC URL to the Transport.
+    [ViemError: No URL was provided to the Transport. Please provide a valid RPC URL to the Transport.
 
-    Docs: https://viem.sh/docs/clients/intro.html
-    Version: viem@1.0.2"
+    Docs: https://viem.sh/docs/clients/intro
+    Version: viem@1.0.2]
   `)
 })

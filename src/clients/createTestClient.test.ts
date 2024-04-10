@@ -32,6 +32,7 @@ test('creates', () => {
       "account": undefined,
       "batch": undefined,
       "cacheTime": 4000,
+      "ccipRead": undefined,
       "chain": {
         "fees": undefined,
         "formatters": undefined,
@@ -42,14 +43,8 @@ test('creates', () => {
           "name": "Ether",
           "symbol": "ETH",
         },
-        "network": "localhost",
         "rpcUrls": {
           "default": {
-            "http": [
-              "http://127.0.0.1:8545",
-            ],
-          },
-          "public": {
             "http": [
               "http://127.0.0.1:8545",
             ],
@@ -121,6 +116,7 @@ describe('transports', () => {
         "account": undefined,
         "batch": undefined,
         "cacheTime": 4000,
+        "ccipRead": undefined,
         "chain": {
           "fees": undefined,
           "formatters": undefined,
@@ -131,14 +127,8 @@ describe('transports', () => {
             "name": "Ether",
             "symbol": "ETH",
           },
-          "network": "localhost",
           "rpcUrls": {
             "default": {
-              "http": [
-                "http://127.0.0.1:8545",
-              ],
-            },
-            "public": {
               "http": [
                 "http://127.0.0.1:8545",
               ],
@@ -191,7 +181,7 @@ describe('transports', () => {
           "retryDelay": 150,
           "timeout": 10000,
           "type": "http",
-          "url": undefined,
+          "url": "http://127.0.0.1:8545",
         },
         "type": "testClient",
       }
@@ -211,6 +201,7 @@ describe('transports', () => {
         "account": undefined,
         "batch": undefined,
         "cacheTime": 4000,
+        "ccipRead": undefined,
         "chain": {
           "fees": undefined,
           "formatters": undefined,
@@ -221,14 +212,8 @@ describe('transports', () => {
             "name": "Ether",
             "symbol": "ETH",
           },
-          "network": "localhost",
           "rpcUrls": {
             "default": {
-              "http": [
-                "http://127.0.0.1:8545",
-              ],
-            },
-            "public": {
               "http": [
                 "http://127.0.0.1:8545",
               ],
@@ -273,6 +258,7 @@ describe('transports', () => {
         "snapshot": [Function],
         "stopImpersonatingAccount": [Function],
         "transport": {
+          "getRpcClient": [Function],
           "getSocket": [Function],
           "key": "webSocket",
           "name": "WebSocket JSON-RPC",
@@ -309,6 +295,7 @@ test('extend', () => {
       "batch": undefined,
       "cacheTime": 4000,
       "call": [Function],
+      "ccipRead": undefined,
       "chain": {
         "fees": undefined,
         "formatters": undefined,
@@ -319,14 +306,8 @@ test('extend', () => {
           "name": "Ether",
           "symbol": "ETH",
         },
-        "network": "localhost",
         "rpcUrls": {
           "default": {
-            "http": [
-              "http://127.0.0.1:8545",
-            ],
-          },
-          "public": {
             "http": [
               "http://127.0.0.1:8545",
             ],
@@ -349,6 +330,7 @@ test('extend', () => {
       "getAddresses": [Function],
       "getAutomine": [Function],
       "getBalance": [Function],
+      "getBlobBaseFee": [Function],
       "getBlock": [Function],
       "getBlockNumber": [Function],
       "getBlockTransactionCount": [Function],
@@ -425,7 +407,7 @@ test('extend', () => {
         "retryDelay": 150,
         "timeout": 10000,
         "type": "http",
-        "url": undefined,
+        "url": "http://127.0.0.1:8545",
       },
       "type": "testClient",
       "uninstallFilter": [Function],

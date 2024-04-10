@@ -11,6 +11,9 @@ import { baycContractConfig, wagmiContractConfig } from '~test/src/abis.js'
 import { address, forkBlockNumber } from '~test/src/constants.js'
 import { deployErrorExample, publicClient } from '~test/src/utils.js'
 
+import type { Hex } from '../../types/misc.js'
+import { pad } from '../../utils/data/pad.js'
+import { toHex } from '../../utils/encoding/toHex.js'
 import { readContract } from './readContract.js'
 
 describe('wagmi', () => {
@@ -102,6 +105,41 @@ describe('wagmi', () => {
       }),
     ).toEqual(3n)
   })
+
+  test('args: stateOverride', async () => {
+    const fakeName = 'NotWagmi'
+
+    // layout of strings in storage
+    const nameSlot = toHex(0, { size: 32 })
+    const fakeNameHex = toHex(fakeName)
+    // we don't divide by 2 because length must be length * 2 if word is strictly less than 32 bytes
+    const bytesLen = fakeNameHex.length - 2
+
+    expect(bytesLen).toBeLessThanOrEqual(62)
+
+    const slotValue = `${pad(fakeNameHex, { dir: 'right', size: 31 })}${toHex(
+      bytesLen,
+      { size: 1 },
+    ).slice(2)}` as Hex
+
+    expect(
+      await readContract(publicClient, {
+        ...wagmiContractConfig,
+        functionName: 'name',
+        stateOverride: [
+          {
+            address: wagmiContractConfig.address,
+            stateDiff: [
+              {
+                slot: nameSlot,
+                value: slotValue,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual(fakeName)
+  })
 })
 
 describe('bayc', () => {
@@ -113,7 +151,7 @@ describe('bayc', () => {
         args: [address.vitalik, 5n],
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"tokenOfOwnerByIndex\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "tokenOfOwnerByIndex" reverted with the following reason:
       EnumerableSet: index out of bounds
 
       Contract Call:
@@ -121,8 +159,8 @@ describe('bayc', () => {
         function:  tokenOfOwnerByIndex(address owner, uint256 index)
         args:                         (0xd8da6bf26964af9d7eed9e03e53415d37aa96045, 5)
 
-      Docs: https://viem.sh/docs/contract/readContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/readContract
+      Version: viem@1.0.2]
     `)
   })
 
@@ -134,7 +172,7 @@ describe('bayc', () => {
         args: [420213123123n],
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"ownerOf\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "ownerOf" reverted with the following reason:
       ERC721: owner query for nonexistent token
 
       Contract Call:
@@ -142,8 +180,8 @@ describe('bayc', () => {
         function:  ownerOf(uint256 tokenId)
         args:             (420213123123)
 
-      Docs: https://viem.sh/docs/contract/readContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/readContract
+      Version: viem@1.0.2]
     `)
   })
 })
@@ -166,7 +204,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  revertRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -188,7 +226,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  assertRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -204,13 +242,13 @@ describe('contract errors', () => {
       }),
     ).rejects.toMatchInlineSnapshot(`
       [ContractFunctionExecutionError: The contract function "overflowRead" reverted with the following reason:
-      Arithmic operation resulted in underflow or overflow.
+      Arithmetic operation resulted in underflow or overflow.
 
       Contract Call:
         address:   0x0000000000000000000000000000000000000000
         function:  overflowRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -232,7 +270,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  divideByZeroRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -253,7 +291,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  requireRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -277,7 +315,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  simpleCustomRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -300,7 +338,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  simpleCustomReadNoArgs()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -324,7 +362,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  complexCustomRead()
 
-      Docs: https://viem.sh/docs/contract/readContract.html
+      Docs: https://viem.sh/docs/contract/readContract
       Version: viem@1.0.2]
     `)
   })
@@ -354,7 +392,7 @@ describe('contract errors', () => {
         address:   0x0000000000000000000000000000000000000000
         function:  simpleCustomRead()
 
-      Docs: https://viem.sh/docs/contract/decodeErrorResult.html
+      Docs: https://viem.sh/docs/contract/decodeErrorResult
       Version: viem@1.0.2]
     `)
   })
@@ -368,10 +406,10 @@ test('fake contract address', async () => {
       functionName: 'totalSupply',
     }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-    "The contract function \\"totalSupply\\" returned no data (\\"0x\\").
+    [ContractFunctionExecutionError: The contract function "totalSupply" returned no data ("0x").
 
     This could be due to any of the following:
-      - The contract does not have the function \\"totalSupply\\",
+      - The contract does not have the function "totalSupply",
       - The parameters passed to the contract function may be invalid, or
       - The address is not a contract.
      
@@ -379,7 +417,7 @@ test('fake contract address', async () => {
       address:   0x0000000000000000000000000000000000000000
       function:  totalSupply()
 
-    Docs: https://viem.sh/docs/contract/readContract.html
-    Version: viem@1.0.2"
+    Docs: https://viem.sh/docs/contract/readContract
+    Version: viem@1.0.2]
   `)
 })

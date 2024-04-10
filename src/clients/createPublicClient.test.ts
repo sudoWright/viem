@@ -33,6 +33,7 @@ test('creates', () => {
       "batch": undefined,
       "cacheTime": 4000,
       "call": [Function],
+      "ccipRead": undefined,
       "chain": undefined,
       "createBlockFilter": [Function],
       "createContractEventFilter": [Function],
@@ -44,6 +45,7 @@ test('creates', () => {
       "estimateMaxPriorityFeePerGas": [Function],
       "extend": [Function],
       "getBalance": [Function],
+      "getBlobBaseFee": [Function],
       "getBlock": [Function],
       "getBlockNumber": [Function],
       "getBlockTransactionCount": [Function],
@@ -148,6 +150,7 @@ describe('transports', () => {
         "batch": undefined,
         "cacheTime": 4000,
         "call": [Function],
+        "ccipRead": undefined,
         "chain": {
           "fees": undefined,
           "formatters": undefined,
@@ -158,14 +161,8 @@ describe('transports', () => {
             "name": "Ether",
             "symbol": "ETH",
           },
-          "network": "localhost",
           "rpcUrls": {
             "default": {
-              "http": [
-                "http://127.0.0.1:8545",
-              ],
-            },
-            "public": {
               "http": [
                 "http://127.0.0.1:8545",
               ],
@@ -183,6 +180,7 @@ describe('transports', () => {
         "estimateMaxPriorityFeePerGas": [Function],
         "extend": [Function],
         "getBalance": [Function],
+        "getBlobBaseFee": [Function],
         "getBlock": [Function],
         "getBlockNumber": [Function],
         "getBlockTransactionCount": [Function],
@@ -223,7 +221,7 @@ describe('transports', () => {
           "retryDelay": 150,
           "timeout": 10000,
           "type": "http",
-          "url": undefined,
+          "url": "http://127.0.0.1:8545",
         },
         "type": "publicClient",
         "uninstallFilter": [Function],
@@ -252,6 +250,7 @@ describe('transports', () => {
         "batch": undefined,
         "cacheTime": 4000,
         "call": [Function],
+        "ccipRead": undefined,
         "chain": {
           "fees": undefined,
           "formatters": undefined,
@@ -262,14 +261,8 @@ describe('transports', () => {
             "name": "Ether",
             "symbol": "ETH",
           },
-          "network": "localhost",
           "rpcUrls": {
             "default": {
-              "http": [
-                "http://127.0.0.1:8545",
-              ],
-            },
-            "public": {
               "http": [
                 "http://127.0.0.1:8545",
               ],
@@ -287,6 +280,7 @@ describe('transports', () => {
         "estimateMaxPriorityFeePerGas": [Function],
         "extend": [Function],
         "getBalance": [Function],
+        "getBlobBaseFee": [Function],
         "getBlock": [Function],
         "getBlockNumber": [Function],
         "getBlockTransactionCount": [Function],
@@ -319,6 +313,7 @@ describe('transports', () => {
         "sendRawTransaction": [Function],
         "simulateContract": [Function],
         "transport": {
+          "getRpcClient": [Function],
           "getSocket": [Function],
           "key": "webSocket",
           "name": "WebSocket JSON-RPC",
@@ -355,6 +350,7 @@ describe('transports', () => {
         "batch": undefined,
         "cacheTime": 4000,
         "call": [Function],
+        "ccipRead": undefined,
         "chain": undefined,
         "createBlockFilter": [Function],
         "createContractEventFilter": [Function],
@@ -366,6 +362,7 @@ describe('transports', () => {
         "estimateMaxPriorityFeePerGas": [Function],
         "extend": [Function],
         "getBalance": [Function],
+        "getBlobBaseFee": [Function],
         "getBlock": [Function],
         "getBlockNumber": [Function],
         "getBlockTransactionCount": [Function],
@@ -436,6 +433,7 @@ test('extend', () => {
       "batch": undefined,
       "cacheTime": 4000,
       "call": [Function],
+      "ccipRead": undefined,
       "chain": {
         "fees": undefined,
         "formatters": undefined,
@@ -446,14 +444,8 @@ test('extend', () => {
           "name": "Ether",
           "symbol": "ETH",
         },
-        "network": "localhost",
         "rpcUrls": {
           "default": {
-            "http": [
-              "http://127.0.0.1:8545",
-            ],
-          },
-          "public": {
             "http": [
               "http://127.0.0.1:8545",
             ],
@@ -476,6 +468,7 @@ test('extend', () => {
       "getAddresses": [Function],
       "getAutomine": [Function],
       "getBalance": [Function],
+      "getBlobBaseFee": [Function],
       "getBlock": [Function],
       "getBlockNumber": [Function],
       "getBlockTransactionCount": [Function],
@@ -551,7 +544,7 @@ test('extend', () => {
         "retryDelay": 150,
         "timeout": 10000,
         "type": "http",
-        "url": undefined,
+        "url": "http://127.0.0.1:8545",
       },
       "type": "publicClient",
       "uninstallFilter": [Function],

@@ -66,7 +66,7 @@ describe('wagmi', () => {
         account: accounts[0].address,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"approve\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "approve" reverted with the following reason:
       ERC721: approval to current owner
 
       Contract Call:
@@ -75,8 +75,8 @@ describe('wagmi', () => {
         args:             (0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC, 420)
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/estimateContractGas
+      Version: viem@1.0.2]
     `)
     await expect(() =>
       estimateContractGas(publicClient, {
@@ -86,7 +86,7 @@ describe('wagmi', () => {
         account: accounts[0].address,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"mint\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "mint" reverted with the following reason:
       Token ID is taken
 
       Contract Call:
@@ -95,8 +95,8 @@ describe('wagmi', () => {
         args:          (1)
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/estimateContractGas
+      Version: viem@1.0.2]
     `)
     await expect(() =>
       estimateContractGas(publicClient, {
@@ -110,7 +110,7 @@ describe('wagmi', () => {
         ],
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"safeTransferFrom\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "safeTransferFrom" reverted with the following reason:
       ERC721: transfer caller is not owner nor approved
 
       Contract Call:
@@ -119,8 +119,8 @@ describe('wagmi', () => {
         args:                      (0x1a1E021A302C237453D3D45c7B82B19cEEB7E2e6, 0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC, 1)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/estimateContractGas
+      Version: viem@1.0.2]
     `)
   })
 })
@@ -185,7 +185,7 @@ describe('BAYC', () => {
           value: 1n,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`
-        "The contract function \\"mintApe\\" reverted with the following reason:
+        [ContractFunctionExecutionError: The contract function "mintApe" reverted with the following reason:
         Sale must be active to mint Ape
 
         Contract Call:
@@ -194,8 +194,8 @@ describe('BAYC', () => {
           args:             (1)
           sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-        Docs: https://viem.sh/docs/contract/estimateContractGas.html
-        Version: viem@1.0.2"
+        Docs: https://viem.sh/docs/contract/estimateContractGas
+        Version: viem@1.0.2]
       `)
     })
   })
@@ -234,7 +234,7 @@ describe('contract errors', () => {
         function:  revertWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })
@@ -258,7 +258,7 @@ describe('contract errors', () => {
         function:  assertWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })
@@ -275,14 +275,14 @@ describe('contract errors', () => {
       }),
     ).rejects.toMatchInlineSnapshot(`
       [ContractFunctionExecutionError: The contract function "overflowWrite" reverted with the following reason:
-      Arithmic operation resulted in underflow or overflow.
+      Arithmetic operation resulted in underflow or overflow.
 
       Contract Call:
         address:   0x0000000000000000000000000000000000000000
         function:  overflowWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })
@@ -306,7 +306,7 @@ describe('contract errors', () => {
         function:  divideByZeroWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })
@@ -329,7 +329,7 @@ describe('contract errors', () => {
         function:  requireWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })
@@ -355,7 +355,7 @@ describe('contract errors', () => {
         function:  simpleCustomWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })
@@ -381,7 +381,7 @@ describe('contract errors', () => {
         function:  complexCustomWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/estimateContractGas.html
+      Docs: https://viem.sh/docs/contract/estimateContractGas
       Version: viem@1.0.2]
     `)
   })

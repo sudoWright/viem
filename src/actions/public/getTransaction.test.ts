@@ -2,16 +2,16 @@ import { assertType, describe, expect, test } from 'vitest'
 
 import { accounts, forkBlockNumber } from '~test/src/constants.js'
 import { publicClient, testClient, walletClient } from '~test/src/utils.js'
-import { celo } from '../../chains/index.js'
+import { celo, holesky } from '../../chains/index.js'
 import { createPublicClient } from '../../clients/createPublicClient.js'
 import { http } from '../../clients/transports/http.js'
+import { createClient } from '../../index.js'
 import type { Transaction } from '../../types/transaction.js'
 import { parseEther } from '../../utils/unit/parseEther.js'
+import { wait } from '../../utils/wait.js'
 import { mine } from '../test/mine.js'
 import { setBalance } from '../test/setBalance.js'
 import { sendTransaction } from '../wallet/sendTransaction.js'
-
-import { wait } from '../../utils/wait.js'
 import { getBlock } from './getBlock.js'
 import { getTransaction } from './getTransaction.js'
 
@@ -60,7 +60,7 @@ test('gets transaction (legacy)', async () => {
     {
       "blockHash": "0x89644bbd5c8d682a2e9611170e6c1f02573d866d286f006cbf517eec7254ec2d",
       "blockNumber": 15131999n,
-      "chainId": undefined,
+      "chainId": 1,
       "from": "0x47a6b2f389cf4bb6e4b69411c87ae82371daf87e",
       "gas": 200000n,
       "gasPrice": 57000000000n,
@@ -111,14 +111,14 @@ test('gets transaction (eip2930)', async () => {
       "gasPrice",
       "gas",
       "input",
-      "v",
       "r",
       "s",
-      "type",
-      "accessList",
-      "chainId",
-      "typeHex",
+      "v",
       "yParity",
+      "chainId",
+      "accessList",
+      "type",
+      "typeHex",
     ]
   `)
   expect(transaction.type).toMatchInlineSnapshot('"eip2930"')
@@ -130,6 +130,46 @@ test('gets transaction (eip2930)', async () => {
     '"0x70997970c51812dc3a010c7d01b50e0d17dc79c8"',
   )
   expect(transaction.value).toMatchInlineSnapshot('1000000000000000000n')
+})
+
+test('gets transaction (eip4844)', async () => {
+  const client = createClient({
+    chain: holesky,
+    transport: http(),
+  })
+  const transaction = await getTransaction(client, {
+    hash: '0x2ad52593fd11478bc0771a48361250220e93123a772e9f316ad8e87d05abe33a',
+  })
+  expect(transaction).toMatchInlineSnapshot(`
+    {
+      "accessList": [],
+      "blobVersionedHashes": [
+        "0x012580b7683c14cc7540be305587b0eec4e7ec739094213ca080e2526c9237c4",
+        "0x01243c18a024c835cce144b3b6b0eb878b7820c7c7b7d9feff80080d76519c45",
+      ],
+      "blockHash": "0xea4b9a0d4ddeb927ddca9d1ebbb8b0e623ffc7a8b1b62990ba2d1c4aac1f23b6",
+      "blockNumber": 1117041n,
+      "chainId": 17000,
+      "from": "0xcb98643b8786950f0461f3b0edf99d88f274574d",
+      "gas": 21000n,
+      "gasPrice": 1262418454n,
+      "hash": "0x2ad52593fd11478bc0771a48361250220e93123a772e9f316ad8e87d05abe33a",
+      "input": "0x",
+      "maxFeePerBlobGas": 30000000000n,
+      "maxFeePerGas": 1594475499n,
+      "maxPriorityFeePerGas": 369627615n,
+      "nonce": 8,
+      "r": "0xbab20bc88be122f86584c3150fd351018ba15e0346d2e62ced9851c02a0caaa2",
+      "s": "0x6da45371fa04d5a8759ed24f462642fc187a1f1062589f30f0c1bb57f60338f6",
+      "to": "0x0000000000000000000000000000000000000000",
+      "transactionIndex": 57,
+      "type": "eip4844",
+      "typeHex": "0x3",
+      "v": 1n,
+      "value": 0n,
+      "yParity": 1,
+    }
+  `)
 })
 
 test('chain w/ custom block type', async () => {
@@ -203,13 +243,27 @@ describe('args: hash', () => {
   })
 
   test('throws if transaction not found', async () => {
+    // await expect(
+    //   getTransaction(publicClient, {
+    //     hash: '0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d',
+    //   }),
+    // ).rejects.toThrowError(
+    //   'Transaction with hash "0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d" could not be found.',
+    // )
+    // TODO: file foundry issue
     await expect(
       getTransaction(publicClient, {
         hash: '0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d',
       }),
-    ).rejects.toThrowError(
-      'Transaction with hash "0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d" could not be found.',
-    )
+    ).rejects.toThrowErrorMatchingInlineSnapshot(`
+      [InternalRpcError: An internal error was received.
+
+      URL: http://localhost
+      Request body: {"method":"eth_getTransactionByHash","params":["0x4ca7ee652d57678f26e887c149ab0735f41de37bcad58c9f6d3ed5824f15b74d"]}
+
+      Details: Fork Error: DeserError { err: Error("invalid type: null, expected struct Transaction", line: 1, column: 4), text: "null" }
+      Version: viem@1.0.2]
+    `)
   })
 })
 

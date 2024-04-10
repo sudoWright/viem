@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import { OffchainLookupExample } from '~test/contracts/generated.js'
 import { createCcipServer } from '~test/src/ccip.js'
-import { accounts } from '~test/src/constants.js'
+import { accounts, localHttpUrl } from '~test/src/constants.js'
 import {
   createHttpServer,
   deployOffchainLookupExample,
@@ -11,9 +11,11 @@ import {
 import { getUrl } from '../errors/utils.js'
 import type { Hex } from '../types/misc.js'
 
+import { createClient } from '../clients/createClient.js'
+import { http } from '../clients/transports/http.js'
 import { encodeErrorResult } from './abi/encodeErrorResult.js'
 import { encodeFunctionData } from './abi/encodeFunctionData.js'
-import { ccipFetch, offchainLookup, offchainLookupAbiItem } from './ccip.js'
+import { ccipRequest, offchainLookup, offchainLookupAbiItem } from './ccip.js'
 import { trim } from './data/trim.js'
 
 describe('offchainLookup', () => {
@@ -46,6 +48,49 @@ describe('offchainLookup', () => {
     })
 
     expect(trim(result)).toEqual(accounts[0].address)
+  })
+
+  test('ccipRequest (client)', async () => {
+    const server = await createCcipServer()
+    const { contractAddress } = await deployOffchainLookupExample({
+      urls: [`${server.url}/{sender}/{data}`],
+    })
+
+    // biome-ignore lint/suspicious/noAsyncPromiseExecutor:
+    const data = await new Promise<Hex>(async (resolve) => {
+      try {
+        const data = encodeFunctionData({
+          abi: OffchainLookupExample.abi,
+          functionName: 'getAddress',
+          args: ['jxom.viem'],
+        })
+        await publicClient.request({
+          method: 'eth_call',
+          params: [{ data, to: contractAddress! }, 'latest'],
+        })
+      } catch (err) {
+        resolve((err as any).cause.data)
+      }
+    })
+
+    let count = 0
+    const client = createClient({
+      ccipRead: {
+        request: async ({ data, sender, urls }) => {
+          count++
+          return ccipRequest({ data, sender, urls })
+        },
+      },
+      transport: http(localHttpUrl),
+    })
+
+    const result = await offchainLookup(client, {
+      data,
+      to: contractAddress!,
+    })
+
+    expect(trim(result)).toEqual(accounts[0].address)
+    expect(count).toBe(1)
   })
 
   test('error: invalid signature', async () => {
@@ -116,9 +161,9 @@ describe('offchainLookup', () => {
   })
 })
 
-describe('ccipFetch', async () => {
+describe('ccipRequest', async () => {
   test('default', async () => {
-    let url
+    let url: string | undefined
     const server = await createHttpServer((req, res) => {
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -127,7 +172,7 @@ describe('ccipFetch', async () => {
       res.end(JSON.stringify({ data: '0xdeadbeef' }))
     })
 
-    const result = await ccipFetch({
+    const result = await ccipRequest({
       data: '0xdeadbeef',
       sender: accounts[0].address,
       urls: [`${server.url}/{sender}/{data}`],
@@ -142,13 +187,13 @@ describe('ccipFetch', async () => {
   })
 
   test('result text', async () => {
-    let url
+    let url: string | undefined
     const server = await createHttpServer((req, res) => {
       url = req.url
       res.end('0xcafebabe')
     })
 
-    const result = await ccipFetch({
+    const result = await ccipRequest({
       data: '0xdeadbeef',
       sender: accounts[0].address,
       urls: [`${server.url}/{sender}/{data}`],
@@ -158,6 +203,31 @@ describe('ccipFetch', async () => {
     expect(url).toEqual(
       '/0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266/0xdeadbeef',
     )
+
+    await server.close()
+  })
+
+  test('result undefined', async () => {
+    const server = await createHttpServer((_, res) => {
+      res.writeHead(500)
+      res.end()
+    })
+
+    await expect(() =>
+      ccipRequest({
+        data: '0xdeadbeef',
+        sender: accounts[0].address,
+        urls: [`${server.url}/{sender}/{data}`],
+      }),
+    ).rejects.toMatchInlineSnapshot(`
+      [HttpRequestError: HTTP request failed.
+
+      Status: 500
+      URL: http://localhost
+
+      Details: Internal Server Error
+      Version: viem@1.0.2]
+    `)
 
     await server.close()
   })
@@ -176,7 +246,7 @@ describe('ccipFetch', async () => {
       })
     })
 
-    const result = await ccipFetch({
+    const result = await ccipRequest({
       data: '0xdeadbeef',
       sender: accounts[0].address,
       urls: [server.url],
@@ -192,7 +262,7 @@ describe('ccipFetch', async () => {
 
   test('multiple urls', async () => {
     let count = 0
-    let url
+    let url: string | undefined
     const server1 = await createHttpServer((_req, res) => {
       count++
       res.writeHead(500)
@@ -212,7 +282,7 @@ describe('ccipFetch', async () => {
       res.end(JSON.stringify({ data: '0xcafebabe' }))
     })
 
-    const result = await ccipFetch({
+    const result = await ccipRequest({
       data: '0xdeadbeef',
       sender: accounts[0].address,
       urls: [
@@ -238,7 +308,7 @@ describe('ccipFetch', async () => {
       res.end('what is this data?')
     })
     await expect(() =>
-      ccipFetch({
+      ccipRequest({
         data: '0xdeadbeef',
         sender: accounts[0].address,
         urls: ['fakeurl'],
@@ -261,7 +331,7 @@ describe('ccipFetch', async () => {
       res.end('what is this data?')
     })
     await expect(() =>
-      ccipFetch({
+      ccipRequest({
         data: '0xdeadbeef',
         sender: accounts[0].address,
         urls: [`${server.url}/{sender}/{data}`],
@@ -297,7 +367,7 @@ describe('ccipFetch', async () => {
     })
 
     await expect(() =>
-      ccipFetch({
+      ccipRequest({
         data: '0xdeadbeef',
         sender: accounts[0].address,
         urls: [

@@ -10,7 +10,6 @@ import {
 } from '../errors/ccip.js'
 import { HttpRequestError } from '../errors/request.js'
 import type { Chain } from '../types/chain.js'
-import type { GetErrorArgs } from '../types/contract.js'
 import type { Hex } from '../types/misc.js'
 
 import type { Client } from '../clients/createClient.js'
@@ -52,7 +51,7 @@ export const offchainLookupAbiItem = {
 
 export type OffchainLookupErrorType = ErrorType
 
-export async function offchainLookup<TChain extends Chain | undefined,>(
+export async function offchainLookup<TChain extends Chain | undefined>(
   client: Client<Transport, TChain>,
   {
     blockNumber,
@@ -67,17 +66,20 @@ export async function offchainLookup<TChain extends Chain | undefined,>(
   const { args } = decodeErrorResult({
     data,
     abi: [offchainLookupAbiItem],
-  }) as unknown as GetErrorArgs<
-    [typeof offchainLookupAbiItem],
-    'OffchainLookup'
-  >
+  })
   const [sender, urls, callData, callbackSelector, extraData] = args
+
+  const { ccipRead } = client
+  const ccipRequest_ =
+    ccipRead && typeof ccipRead?.request === 'function'
+      ? ccipRead.request
+      : ccipRequest
 
   try {
     if (!isAddressEqual(to, sender))
       throw new OffchainLookupSenderMismatchError({ sender, to })
 
-    const result = await ccipFetch({ data: callData, sender, urls })
+    const result = await ccipRequest_({ data: callData, sender, urls })
 
     const { data: data_ } = await call(client, {
       blockNumber,
@@ -105,19 +107,26 @@ export async function offchainLookup<TChain extends Chain | undefined,>(
   }
 }
 
-export type CcipFetchErrorType = ErrorType
+export type CcipRequestParameters = {
+  data: Hex
+  sender: Address
+  urls: readonly string[]
+}
 
-export async function ccipFetch({
+export type CcipRequestReturnType = Hex
+
+export type CcipRequestErrorType = ErrorType
+
+export async function ccipRequest({
   data,
   sender,
   urls,
-}: { data: Hex; sender: Address; urls: readonly string[] }) {
+}: CcipRequestParameters): Promise<CcipRequestReturnType> {
   let error = new Error('An unknown error occurred.')
 
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i]
-    const method =
-      url.includes('{sender}') || url.includes('{data}') ? 'GET' : 'POST'
+    const method = url.includes('{data}') ? 'GET' : 'POST'
     const body = method === 'POST' ? { data, sender } : undefined
 
     try {
@@ -129,7 +138,7 @@ export async function ccipFetch({
         },
       )
 
-      let result
+      let result: any
       if (
         response.headers.get('Content-Type')?.startsWith('application/json')
       ) {
@@ -141,7 +150,9 @@ export async function ccipFetch({
       if (!response.ok) {
         error = new HttpRequestError({
           body,
-          details: stringify(result.error) || response.statusText,
+          details: result?.error
+            ? stringify(result.error)
+            : response.statusText,
           headers: response.headers,
           status: response.status,
           url,

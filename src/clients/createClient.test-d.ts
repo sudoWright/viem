@@ -2,7 +2,8 @@ import type { Address } from 'abitype'
 import { describe, expectTypeOf, test } from 'vitest'
 
 import type { Account, JsonRpcAccount } from '../accounts/types.js'
-import { localhost } from '../chains/index.js'
+import { localhost, optimism } from '../chains/index.js'
+import { createPublicClient, publicActions } from '../index.js'
 import { type Chain } from '../types/chain.js'
 import { type Client, createClient } from './createClient.js'
 import { walletActions } from './decorators/wallet.js'
@@ -66,6 +67,15 @@ describe('extend', () => {
     expectTypeOf(extended.getChainId).toEqualTypeOf<() => Promise<1337>>()
   })
 
+  test('chain w/ formatter', async () => {
+    const client = createClient({
+      chain: optimism,
+      transport: http(),
+    }).extend(publicActions)
+    await client.getBlock()
+    await client.getTransaction({ hash: '0x' })
+  })
+
   test('protected action', () => {
     const client = createClient({
       chain: localhost,
@@ -114,5 +124,12 @@ describe('extend', () => {
       return client.extend(walletActions)
     }
     getClient(localhost)
+  })
+})
+
+test('https://github.com/wevm/viem/issues/1955', () => {
+  createPublicClient({
+    chain: optimism,
+    transport: http(),
   })
 })

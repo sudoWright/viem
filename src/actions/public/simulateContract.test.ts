@@ -67,6 +67,18 @@ describe('wagmi', () => {
     ).toEqual(undefined)
   })
 
+  test('client account', async () => {
+    const { request, result } = await simulateContract(
+      walletClientWithAccount,
+      {
+        ...wagmiContractConfig,
+        functionName: 'mint',
+      },
+    )
+    expect(result).toEqual(undefined)
+    expect(request.account).toEqual(walletClientWithAccount.account)
+  })
+
   test('no account', async () => {
     await expect(() =>
       simulateContract(publicClient, {
@@ -75,7 +87,7 @@ describe('wagmi', () => {
         args: [69420n],
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"mint\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "mint" reverted with the following reason:
       ERC721: mint to the zero address
 
       Contract Call:
@@ -83,8 +95,8 @@ describe('wagmi', () => {
         function:  mint(uint256 tokenId)
         args:          (69420)
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/simulateContract
+      Version: viem@1.0.2]
     `)
   })
 
@@ -97,7 +109,7 @@ describe('wagmi', () => {
         account: accounts[0].address,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"approve\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "approve" reverted with the following reason:
       ERC721: approval to current owner
 
       Contract Call:
@@ -106,8 +118,8 @@ describe('wagmi', () => {
         args:             (0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC, 420)
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/simulateContract
+      Version: viem@1.0.2]
     `)
     await expect(() =>
       simulateContract(publicClient, {
@@ -117,7 +129,7 @@ describe('wagmi', () => {
         account: accounts[0].address,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"mint\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "mint" reverted with the following reason:
       Token ID is taken
 
       Contract Call:
@@ -126,8 +138,8 @@ describe('wagmi', () => {
         args:          (1)
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/simulateContract
+      Version: viem@1.0.2]
     `)
     await expect(() =>
       simulateContract(publicClient, {
@@ -141,7 +153,7 @@ describe('wagmi', () => {
         ],
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The contract function \\"safeTransferFrom\\" reverted with the following reason:
+      [ContractFunctionExecutionError: The contract function "safeTransferFrom" reverted with the following reason:
       ERC721: transfer caller is not owner nor approved
 
       Contract Call:
@@ -150,8 +162,8 @@ describe('wagmi', () => {
         args:                      (0x1a1E021A302C237453D3D45c7B82B19cEEB7E2e6, 0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC, 1)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/simulateContract
+      Version: viem@1.0.2]
     `)
   })
 })
@@ -165,7 +177,7 @@ test('args: dataSuffix', async () => {
     dataSuffix: '0x12345678',
   })
   expect(spy).toHaveBeenCalledWith({
-    account: accounts[0].address,
+    account: request.account,
     batch: false,
     data: '0x1249c58b12345678',
     to: wagmiContractConfig.address,
@@ -242,16 +254,16 @@ describe('BAYC', () => {
           value: 1000000000000000000n,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`
-          "The contract function \\"mintApe\\" reverted with the following reason:
-          ERC721: mint to the zero address
+        [ContractFunctionExecutionError: The contract function "mintApe" reverted with the following reason:
+        ERC721: mint to the zero address
 
-          Contract Call:
-            address:   0x0000000000000000000000000000000000000000
-            function:  mintApe(uint256 numberOfTokens)
-            args:             (1)
-          
-          Docs: https://viem.sh/docs/contract/simulateContract.html
-          Version: viem@1.0.2"
+        Contract Call:
+          address:   0x0000000000000000000000000000000000000000
+          function:  mintApe(uint256 numberOfTokens)
+          args:             (1)
+
+        Docs: https://viem.sh/docs/contract/simulateContract
+        Version: viem@1.0.2]
       `)
     })
 
@@ -297,7 +309,7 @@ describe('BAYC', () => {
           value: 1n,
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`
-        "The contract function \\"mintApe\\" reverted with the following reason:
+        [ContractFunctionExecutionError: The contract function "mintApe" reverted with the following reason:
         Sale must be active to mint Ape
 
         Contract Call:
@@ -306,8 +318,8 @@ describe('BAYC', () => {
           args:             (1)
           sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-        Docs: https://viem.sh/docs/contract/simulateContract.html
-        Version: viem@1.0.2"
+        Docs: https://viem.sh/docs/contract/simulateContract
+        Version: viem@1.0.2]
       `)
     })
   })
@@ -333,7 +345,7 @@ describe('contract errors', () => {
           function:  revertWrite()
           sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-        Docs: https://viem.sh/docs/contract/simulateContract.html
+        Docs: https://viem.sh/docs/contract/simulateContract
         Version: viem@1.0.2]
       `)
   })
@@ -357,7 +369,7 @@ describe('contract errors', () => {
           function:  assertWrite()
           sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-        Docs: https://viem.sh/docs/contract/simulateContract.html
+        Docs: https://viem.sh/docs/contract/simulateContract
         Version: viem@1.0.2]
       `)
   })
@@ -374,14 +386,14 @@ describe('contract errors', () => {
       }),
     ).rejects.toMatchInlineSnapshot(`
       [ContractFunctionExecutionError: The contract function "overflowWrite" reverted with the following reason:
-      Arithmic operation resulted in underflow or overflow.
+      Arithmetic operation resulted in underflow or overflow.
 
       Contract Call:
         address:   0x0000000000000000000000000000000000000000
         function:  overflowWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Version: viem@1.0.2]
     `)
   })
@@ -405,7 +417,7 @@ describe('contract errors', () => {
         function:  divideByZeroWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Version: viem@1.0.2]
     `)
   })
@@ -428,7 +440,7 @@ describe('contract errors', () => {
         function:  requireWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Version: viem@1.0.2]
     `)
   })
@@ -454,7 +466,7 @@ describe('contract errors', () => {
         function:  simpleCustomWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Version: viem@1.0.2]
     `)
   })
@@ -480,7 +492,7 @@ describe('contract errors', () => {
         function:  complexCustomWrite()
         sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Version: viem@1.0.2]
     `)
   })
@@ -503,10 +515,10 @@ test('fake contract address', async () => {
       account: accounts[0].address,
     }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-    "The contract function \\"mint\\" returned no data (\\"0x\\").
+    [ContractFunctionExecutionError: The contract function "mint" returned no data ("0x").
 
     This could be due to any of the following:
-      - The contract does not have the function \\"mint\\",
+      - The contract does not have the function "mint",
       - The parameters passed to the contract function may be invalid, or
       - The address is not a contract.
      
@@ -515,8 +527,8 @@ test('fake contract address', async () => {
       function:  mint()
       sender:    0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 
-    Docs: https://viem.sh/docs/contract/simulateContract.html
-    Version: viem@1.0.2"
+    Docs: https://viem.sh/docs/contract/simulateContract
+    Version: viem@1.0.2]
   `)
 })
 
@@ -531,7 +543,7 @@ describe('node errors', () => {
         maxFeePerGas: 2n ** 256n - 1n + 1n,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The fee cap (\`maxFeePerGas\` = 115792089237316195423570985008687907853269984665640564039457584007913.129639936 gwei) cannot be higher than the maximum allowed value (2^256-1).
+      [ContractFunctionExecutionError: The fee cap (\`maxFeePerGas\` = 115792089237316195423570985008687907853269984665640564039457584007913.129639936 gwei) cannot be higher than the maximum allowed value (2^256-1).
 
       Raw Call Arguments:
         from:          0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
@@ -545,8 +557,8 @@ describe('node errors', () => {
         args:          (69420)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/simulateContract
+      Version: viem@1.0.2]
     `)
   })
 
@@ -562,7 +574,7 @@ describe('node errors', () => {
         gas: 100n,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The amount of gas (100) provided for the transaction exceeds the limit allowed for the block.
+      [ContractFunctionExecutionError: The amount of gas (100) provided for the transaction exceeds the limit allowed for the block.
 
       Raw Call Arguments:
         from:  0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
@@ -576,9 +588,9 @@ describe('node errors', () => {
         args:          (69420)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Details: intrinsic gas too high -- CallGasCostMoreThanGasLimit
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
 
     await expect(() =>
@@ -640,7 +652,7 @@ describe('node errors', () => {
         nonce: 0,
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "Nonce provided for the transaction is lower than the current nonce of the account.
+      [ContractFunctionExecutionError: Nonce provided for the transaction is lower than the current nonce of the account.
       Try increasing the nonce or find the latest nonce with \`getTransactionCount\`.
 
       Raw Call Arguments:
@@ -655,9 +667,9 @@ describe('node errors', () => {
         args:          (69420)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Details: nonce too low
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
   })
 
@@ -672,7 +684,7 @@ describe('node errors', () => {
         value: parseEther('100000'),
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+      [ContractFunctionExecutionError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
 
       This error could arise when the account does not have enough funds to:
        - pay for the total gas fee,
@@ -695,9 +707,9 @@ describe('node errors', () => {
         args:          (69420)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
+      Docs: https://viem.sh/docs/contract/simulateContract
       Details: Insufficient funds for gas * price + value
-      Version: viem@1.0.2"
+      Version: viem@1.0.2]
     `)
 
     await expect(() =>
@@ -723,7 +735,7 @@ describe('node errors', () => {
         maxPriorityFeePerGas: parseGwei('22'),
       }),
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "The provided tip (\`maxPriorityFeePerGas\` = 22 gwei) cannot be higher than the fee cap (\`maxFeePerGas\` = 20 gwei).
+      [ContractFunctionExecutionError: The provided tip (\`maxPriorityFeePerGas\` = 22 gwei) cannot be higher than the fee cap (\`maxFeePerGas\` = 20 gwei).
 
       Raw Call Arguments:
         from:                  0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
@@ -738,8 +750,8 @@ describe('node errors', () => {
         args:          (69420)
         sender:    0xa5cc3c03994DB5b0d9A5eEdD10CabaB0813678AC
 
-      Docs: https://viem.sh/docs/contract/simulateContract.html
-      Version: viem@1.0.2"
+      Docs: https://viem.sh/docs/contract/simulateContract
+      Version: viem@1.0.2]
     `)
   })
 })

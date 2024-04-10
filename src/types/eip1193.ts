@@ -2,6 +2,7 @@ import type { Address } from 'abitype'
 
 import type { BlockTag } from './block.js'
 import type { Hash, Hex, LogTopic } from './misc.js'
+import type { RpcStateOverride } from './rpc.js'
 import type {
   Quantity,
   RpcBlock as Block,
@@ -15,16 +16,18 @@ import type {
   RpcTransactionRequest as TransactionRequest,
   RpcUncle as Uncle,
 } from './rpc.js'
-import type { Prettify } from './utils.js'
+import type { ExactPartial, Prettify } from './utils.js'
 
 //////////////////////////////////////////////////
 // Provider
 
 export type EIP1474Methods = [...PublicRpcSchema, ...WalletRpcSchema]
 
-export type EIP1193Provider = EIP1193Events & {
-  request: EIP1193RequestFn<EIP1474Methods>
-}
+export type EIP1193Provider = Prettify<
+  EIP1193Events & {
+    request: EIP1193RequestFn<EIP1474Methods>
+  }
+>
 
 //////////////////////////////////////////////////
 // Errors
@@ -83,14 +86,16 @@ export type AddEthereumChainParameter = {
   /** The chain name. */
   chainName: string
   /** Native currency for the chain. */
-  nativeCurrency?: {
-    name: string
-    symbol: string
-    decimals: number
-  }
+  nativeCurrency?:
+    | {
+        name: string
+        symbol: string
+        decimals: number
+      }
+    | undefined
   rpcUrls: readonly string[]
-  blockExplorerUrls?: string[]
-  iconUrls?: string[]
+  blockExplorerUrls?: string[] | undefined
+  iconUrls?: string[] | undefined
 }
 
 export type NetworkSync = {
@@ -100,6 +105,35 @@ export type NetworkSync = {
   highestBlock: Quantity
   /** Block number at which syncing started */
   startingBlock: Quantity
+}
+
+export type WalletCapabilities = {
+  [capability: string]: any
+}
+
+export type WalletCapabilitiesRecord<
+  capabilities extends WalletCapabilities = WalletCapabilities,
+  id extends string | number = Hex,
+> = {
+  [chainId in id]: capabilities
+}
+
+export type WalletCallReceipt<quantity = Hex, status = Hex> = {
+  logs: {
+    address: Hex
+    data: Hex
+    topics: Hex[]
+  }[]
+  status: status
+  blockHash: Hex
+  blockNumber: quantity
+  gasUsed: quantity
+  transactionHash: Hex
+}
+
+export type WalletGetCallsStatusReturnType<quantity = Hex, status = Hex> = {
+  status: 'PENDING' | 'CONFIRMED'
+  receipts?: WalletCallReceipt<quantity, status>[] | undefined
 }
 
 export type WalletPermissionCaveat = {
@@ -115,6 +149,24 @@ export type WalletPermission = {
   parentCapability: 'eth_accounts' | string
 }
 
+export type WalletSendCallsParameters<
+  capabilities extends WalletCapabilities = WalletCapabilities,
+  chainId extends Hex | number = Hex,
+  quantity extends Quantity | bigint = Quantity,
+> = [
+  {
+    version: string
+    chainId: chainId
+    from: Address
+    calls: {
+      to: Address
+      data: Hex
+      value: quantity
+    }[]
+    capabilities?: capabilities | undefined
+  },
+]
+
 export type WatchAssetParams = {
   /** Token type. */
   type: 'ERC20'
@@ -126,7 +178,7 @@ export type WatchAssetParams = {
     /** The number of token decimals */
     decimals: number
     /** A string url of the token logo */
-    image?: string
+    image?: string | undefined
   }
 }
 
@@ -192,6 +244,18 @@ export type PublicRpcSchema = [
     ReturnType: Quantity
   },
   /**
+   * @description Returns the base fee per blob gas in wei.
+   *
+   * @example
+   * provider.request({ method: 'eth_blobBaseFee' })
+   * // => '0x09184e72a000'
+   */
+  {
+    Method: 'eth_blobBaseFee'
+    Parameters?: undefined
+    ReturnType: Quantity
+  },
+  /**
    * @description Returns the number of the most recent block seen by this client
    *
    * @example
@@ -213,10 +277,15 @@ export type PublicRpcSchema = [
   {
     Method: 'eth_call'
     Parameters:
-      | [transaction: Partial<TransactionRequest>]
+      | [transaction: ExactPartial<TransactionRequest>]
       | [
-          transaction: Partial<TransactionRequest>,
+          transaction: ExactPartial<TransactionRequest>,
           block: BlockNumber | BlockTag | BlockIdentifier,
+        ]
+      | [
+          transaction: ExactPartial<TransactionRequest>,
+          block: BlockNumber | BlockTag | BlockIdentifier,
+          stateOverrideSet: RpcStateOverride,
         ]
     ReturnType: Hex
   },
@@ -431,18 +500,18 @@ export type PublicRpcSchema = [
     Method: 'eth_getLogs'
     Parameters: [
       {
-        address?: Address | Address[]
-        topics?: LogTopic[]
+        address?: Address | Address[] | undefined
+        topics?: LogTopic[] | undefined
       } & (
         | {
-            fromBlock?: BlockNumber | BlockTag
-            toBlock?: BlockNumber | BlockTag
-            blockHash?: never
+            fromBlock?: BlockNumber | BlockTag | undefined
+            toBlock?: BlockNumber | BlockTag | undefined
+            blockHash?: never | undefined
           }
         | {
-            fromBlock?: never
-            toBlock?: never
-            blockHash?: Hash
+            fromBlock?: never | undefined
+            toBlock?: never | undefined
+            blockHash?: Hash | undefined
           }
       ),
     ]
@@ -630,10 +699,10 @@ export type PublicRpcSchema = [
     Method: 'eth_newFilter'
     Parameters: [
       filter: {
-        fromBlock?: BlockNumber | BlockTag
-        toBlock?: BlockNumber | BlockTag
-        address?: Address | Address[]
-        topics?: LogTopic[]
+        fromBlock?: BlockNumber | BlockTag | undefined
+        toBlock?: BlockNumber | BlockTag | undefined
+        address?: Address | Address[] | undefined
+        topics?: LogTopic[] | undefined
       },
     ]
     ReturnType: Quantity
@@ -746,7 +815,7 @@ export type TestRpcSchema<TMode extends string> = [
    */
   {
     Method: `${TMode}_loadState`
-    Parameters?: [Hex]
+    Parameters?: [Hex] | undefined
     ReturnType: void
   },
   /**
@@ -988,7 +1057,7 @@ export type TestRpcSchema<TMode extends string> = [
    */
   {
     Method: 'evm_revert'
-    Parameters?: [id: Quantity]
+    Parameters?: [id: Quantity] | undefined
     ReturnType: void
   },
   /**
@@ -1060,12 +1129,14 @@ export type TestRpcSchema<TMode extends string> = [
    */
   {
     Method: 'evm_mine'
-    Parameters?: [
-      {
-        /** Number of blocks to mine. */
-        blocks: Hex
-      },
-    ]
+    Parameters?:
+      | [
+          {
+            /** Number of blocks to mine. */
+            blocks: Hex
+          },
+        ]
+      | undefined
     ReturnType: void
   },
   /**
@@ -1247,6 +1318,30 @@ export type WalletRpcSchema = [
     ReturnType: null
   },
   /**
+   * @description Returns the status of a call batch that was sent via `wallet_sendCalls`.
+   * @link https://eips.ethereum.org/EIPS/eip-5792
+   * @example
+   * provider.request({ method: 'wallet_getCallsStatus' })
+   * // => { ... }
+   */
+  {
+    Method: 'wallet_getCallsStatus'
+    Parameters?: [string]
+    ReturnType: WalletGetCallsStatusReturnType
+  },
+  /**
+   * @description Gets the connected wallet's capabilities.
+   * @link https://eips.ethereum.org/EIPS/eip-5792
+   * @example
+   * provider.request({ method: 'wallet_getCapabilities' })
+   * // => { ... }
+   */
+  {
+    Method: 'wallet_getCapabilities'
+    Parameters?: [Address]
+    ReturnType: Prettify<WalletCapabilitiesRecord>
+  },
+  /**
    * @description Gets the wallets current permissions.
    * @link https://eips.ethereum.org/EIPS/eip-2255
    * @example
@@ -1269,6 +1364,30 @@ export type WalletRpcSchema = [
     Method: 'wallet_requestPermissions'
     Parameters: [permissions: { eth_accounts: Record<string, any> }]
     ReturnType: WalletPermission[]
+  },
+  /**
+   * @description Requests the connected wallet to send a batch of calls.
+   * @link https://eips.ethereum.org/EIPS/eip-5792
+   * @example
+   * provider.request({ method: 'wallet_sendCalls' })
+   * // => { ... }
+   */
+  {
+    Method: 'wallet_sendCalls'
+    Parameters?: WalletSendCallsParameters
+    ReturnType: string
+  },
+  /**
+   * @description Requests for the wallet to show information about a call batch
+   * that was sent via `wallet_sendCalls`.
+   * @link https://eips.ethereum.org/EIPS/eip-5792
+   * @example
+   * provider.request({ method: 'wallet_showCallsStatus', params: ['...'] })
+   */
+  {
+    Method: 'wallet_showCallsStatus'
+    Parameters?: [string]
+    ReturnType: void
   },
   /**
    * @description Switch the wallet to the given Ethereum chain.
@@ -1301,7 +1420,7 @@ export type WalletRpcSchema = [
 
 export type RpcSchema = readonly {
   Method: string
-  Parameters?: unknown
+  Parameters?: unknown | undefined
   ReturnType: unknown
 }[]
 
@@ -1318,15 +1437,22 @@ export type EIP1193Parameters<
             : never
         } & (TRpcSchema[K] extends TRpcSchema[number]
           ? TRpcSchema[K]['Parameters'] extends undefined
-            ? { params?: never }
+            ? { params?: never | undefined }
             : { params: TRpcSchema[K]['Parameters'] }
           : never)
       >
     }[number]
   : {
       method: string
-      params?: unknown
+      params?: unknown | undefined
     }
+
+export type EIP1193RequestOptions = {
+  // The base delay (in ms) between retries.
+  retryDelay?: number | undefined
+  // The max number of times to retry.
+  retryCount?: number | undefined
+}
 
 type DerivedRpcSchema<
   TRpcSchema extends RpcSchema | undefined,
@@ -1353,4 +1479,5 @@ export type EIP1193RequestFn<
     : unknown,
 >(
   args: TParameters,
+  options?: EIP1193RequestOptions | undefined,
 ) => Promise<_ReturnType>

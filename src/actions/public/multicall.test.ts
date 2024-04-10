@@ -26,7 +26,9 @@ import {
 import { mainnet } from '../../chains/index.js'
 import { createPublicClient } from '../../clients/createPublicClient.js'
 import { http } from '../../clients/transports/http.js'
-
+import type { Hex } from '../../types/misc.js'
+import { pad } from '../../utils/data/pad.js'
+import { toHex } from '../../utils/encoding/toHex.js'
 import { multicall } from './multicall.js'
 import * as readContract from './readContract.js'
 
@@ -282,30 +284,92 @@ test('args: multicallAddress', async () => {
   `)
 })
 
+test('args: stateOverride', async () => {
+  const fakeName = 'NotWagmi'
+
+  // layout of strings in storage
+  const nameSlot = toHex(0, { size: 32 })
+  const fakeNameHex = toHex(fakeName)
+  // we don't divide by 2 because length must be length * 2 if word is strictly less than 32 bytes
+  const bytesLen = fakeNameHex.length - 2
+
+  expect(bytesLen).toBeLessThanOrEqual(62)
+
+  const slotValue = `${pad(fakeNameHex, { dir: 'right', size: 31 })}${toHex(
+    bytesLen,
+    { size: 1 },
+  ).slice(2)}` as Hex
+
+  expect(
+    await multicall(publicClient, {
+      batchSize: 2,
+      contracts: [
+        {
+          ...wagmiContractConfig,
+          functionName: 'name',
+        },
+        {
+          ...wagmiContractConfig,
+          functionName: 'name',
+        },
+        {
+          ...wagmiContractConfig,
+          functionName: 'name',
+        },
+      ],
+      stateOverride: [
+        {
+          address: wagmiContractConfig.address,
+          stateDiff: [
+            {
+              slot: nameSlot,
+              value: slotValue,
+            },
+          ],
+        },
+      ],
+    }),
+  ).toMatchInlineSnapshot(`
+    [
+      {
+        "result": "${fakeName}",
+        "status": "success",
+      },
+      {
+        "result": "${fakeName}",
+        "status": "success",
+      },
+      {
+        "result": "${fakeName}",
+        "status": "success",
+      },
+    ]
+  `)
+})
+
 describe('errors', async () => {
   describe('allowFailure is truthy', async () => {
     test('function not found', async () => {
-      expect(
-        await multicall(publicClient, {
-          blockNumber: forkBlockNumber,
-          contracts: [
-            {
-              ...usdcContractConfig,
-              // @ts-expect-error
-              functionName: 'lol',
-            },
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'totalSupply',
-            },
-          ],
-        }),
-      ).toMatchInlineSnapshot(`
+      const res = await multicall(publicClient, {
+        blockNumber: forkBlockNumber,
+        contracts: [
+          {
+            ...usdcContractConfig,
+            // @ts-expect-error
+            functionName: 'lol',
+          },
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'totalSupply',
+          },
+        ],
+      })
+      expect(res).toMatchInlineSnapshot(`
         [
           {
             "error": [ContractFunctionExecutionError: The contract function "lol" returned no data ("0x").
@@ -318,7 +382,7 @@ describe('errors', async () => {
         Contract Call:
           address:  0x0000000000000000000000000000000000000000
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -336,29 +400,27 @@ describe('errors', async () => {
     })
 
     test('invalid params', async () => {
-      expect(
-        await multicall(publicClient, {
-          blockNumber: forkBlockNumber,
-          // @ts-ignore
-          contracts: [
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              // @ts-ignore
-              args: [address.vitalik, 1n],
-            },
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'totalSupply',
-            },
-          ] as const,
-        }),
-      ).toMatchInlineSnapshot(`
+      const res = await multicall(publicClient, {
+        blockNumber: forkBlockNumber,
+        contracts: [
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            // @ts-expect-error invalid args
+            args: [address.vitalik, 1n],
+          },
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'totalSupply',
+          },
+        ],
+      })
+      expect(res).toMatchInlineSnapshot(`
         [
           {
             "error": [ContractFunctionExecutionError: The contract function "balanceOf" returned no data ("0x").
@@ -373,7 +435,7 @@ describe('errors', async () => {
           function:  balanceOf(address account)
           args:               (0xd8da6bf26964af9d7eed9e03e53415d37aa96045)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -427,7 +489,7 @@ describe('errors', async () => {
           function:  balanceOf(address account)
           args:               (0xd8da6bf26964af9d7eed9e03e53415d37aa96045)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -445,37 +507,36 @@ describe('errors', async () => {
     })
 
     test('contract revert', async () => {
-      expect(
-        await multicall(publicClient, {
-          blockNumber: forkBlockNumber,
-          contracts: [
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...wagmiContractConfig,
-              functionName: 'transferFrom',
-              args: [address.vitalik, accounts[0].address, 1n],
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'totalSupply',
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'tokenOfOwnerByIndex',
-              args: [address.vitalik, 1n],
-            },
-          ] as const,
-        }),
-      ).toMatchInlineSnapshot(`
+      const res = await multicall(publicClient, {
+        blockNumber: forkBlockNumber,
+        contracts: [
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...wagmiContractConfig,
+            functionName: 'transferFrom',
+            args: [address.vitalik, accounts[0].address, 1n],
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'totalSupply',
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'tokenOfOwnerByIndex',
+            args: [address.vitalik, 1n],
+          },
+        ],
+      })
+      expect(res).toMatchInlineSnapshot(`
         [
           {
             "result": 231481998602n,
@@ -494,7 +555,7 @@ describe('errors', async () => {
           function:  transferFrom(address from, address to, uint256 tokenId)
           args:                  (0xd8da6bf26964af9d7eed9e03e53415d37aa96045, 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266, 1)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -512,7 +573,7 @@ describe('errors', async () => {
           function:  tokenOfOwnerByIndex(address owner, uint256 index)
           args:                         (0xd8da6bf26964af9d7eed9e03e53415d37aa96045, 1)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -571,7 +632,7 @@ describe('errors', async () => {
           address:   0x0000000000000000000000000000000000000000
           function:  simpleCustomRead()
 
-        Docs: https://viem.sh/docs/contract/decodeErrorResult.html
+        Docs: https://viem.sh/docs/contract/decodeErrorResult
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -721,7 +782,7 @@ describe('errors', async () => {
         Contract Call:
           address:  0x0000000000000000000000000000000000000000
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2],
             "result": undefined,
             "status": "failure",
@@ -737,62 +798,59 @@ describe('errors', async () => {
 
   describe('allowFailure is falsy', async () => {
     test('function not found', async () => {
-      await expect(() =>
-        multicall(publicClient, {
-          allowFailure: false,
-          contracts: [
-            {
-              ...usdcContractConfig,
-              // @ts-expect-error
-              functionName: 'lol',
-            },
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'totalSupply',
-            },
-          ],
-        }),
-      ).rejects.toMatchInlineSnapshot(`
+      const res = multicall(publicClient, {
+        allowFailure: false,
+        contracts: [
+          {
+            ...usdcContractConfig,
+            // @ts-expect-error
+            functionName: 'lol',
+          },
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'totalSupply',
+          },
+        ],
+      })
+      await expect(() => res).rejects.toMatchInlineSnapshot(`
         [ContractFunctionExecutionError: Function "lol" not found on ABI.
         Make sure you are using the correct ABI and that the function exists on it.
 
         Contract Call:
           address:  0x0000000000000000000000000000000000000000
 
-        Docs: https://viem.sh/docs/contract/encodeFunctionData.html
+        Docs: https://viem.sh/docs/contract/encodeFunctionData
         Version: viem@1.0.2]
       `)
     })
 
     test('invalid params', async () => {
-      await expect(() =>
-        multicall(publicClient, {
-          allowFailure: false,
-          // @ts-ignore
-          contracts: [
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              // @ts-ignore
-              args: [address.vitalik, 1n],
-            },
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'totalSupply',
-            },
-          ] as const,
-        }),
-      ).rejects.toMatchInlineSnapshot(`
+      const res = multicall(publicClient, {
+        allowFailure: false,
+        contracts: [
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            // @ts-expect-error
+            args: [address.vitalik, 1n],
+          },
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'totalSupply',
+          },
+        ],
+      })
+      await expect(() => res).rejects.toMatchInlineSnapshot(`
         [ContractFunctionExecutionError: ABI encoding params/values length mismatch.
         Expected length (params): 1
         Given length (values): 2
@@ -802,7 +860,7 @@ describe('errors', async () => {
           function:  balanceOf(address account)
           args:               (0xd8da6bf26964af9d7eed9e03e53415d37aa96045)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2]
       `)
     })
@@ -842,43 +900,42 @@ describe('errors', async () => {
           function:  balanceOf(address account)
           args:               (0xd8da6bf26964af9d7eed9e03e53415d37aa96045)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2]
       `)
     })
 
     test('contract revert', async () => {
-      await expect(() =>
-        multicall(publicClient, {
-          allowFailure: false,
-          contracts: [
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...usdcContractConfig,
-              functionName: 'balanceOf',
-              args: [address.vitalik],
-            },
-            {
-              ...wagmiContractConfig,
-              functionName: 'transferFrom',
-              args: [address.vitalik, accounts[0].address, 1n],
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'totalSupply',
-            },
-            {
-              ...baycContractConfig,
-              functionName: 'tokenOfOwnerByIndex',
-              args: [address.vitalik, 1n],
-            },
-          ] as const,
-        }),
-      ).rejects.toMatchInlineSnapshot(`
+      const res = multicall(publicClient, {
+        allowFailure: false,
+        contracts: [
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...usdcContractConfig,
+            functionName: 'balanceOf',
+            args: [address.vitalik],
+          },
+          {
+            ...wagmiContractConfig,
+            functionName: 'transferFrom',
+            args: [address.vitalik, accounts[0].address, 1n],
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'totalSupply',
+          },
+          {
+            ...baycContractConfig,
+            functionName: 'tokenOfOwnerByIndex',
+            args: [address.vitalik, 1n],
+          },
+        ],
+      })
+      await expect(() => res).rejects.toMatchInlineSnapshot(`
         [ContractFunctionExecutionError: The contract function "transferFrom" reverted with the following reason:
         ERC721: transfer caller is not owner nor approved
 
@@ -887,7 +944,7 @@ describe('errors', async () => {
           function:  transferFrom(address from, address to, uint256 tokenId)
           args:                  (0xd8da6bf26964af9d7eed9e03e53415d37aa96045, 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266, 1)
 
-        Docs: https://viem.sh/docs/contract/multicall.html
+        Docs: https://viem.sh/docs/contract/multicall
         Version: viem@1.0.2]
       `)
     })
@@ -934,7 +991,7 @@ describe('errors', async () => {
         address:   0x0000000000000000000000000000000000000000
         function:  simpleCustomRead()
 
-      Docs: https://viem.sh/docs/contract/decodeErrorResult.html
+      Docs: https://viem.sh/docs/contract/decodeErrorResult
       Version: viem@1.0.2]
     `)
   })
@@ -1000,7 +1057,7 @@ describe('errors', async () => {
           },
         ],
       }),
-    ).rejects.toThrowErrorMatchingInlineSnapshot('"err_1"')
+    ).rejects.toThrowErrorMatchingInlineSnapshot('[Error: err_1]')
   })
 })
 
@@ -1030,7 +1087,7 @@ test('chain not provided', async () => {
       },
     ),
   ).rejects.toThrowErrorMatchingInlineSnapshot(
-    '"client chain not configured. multicallAddress is required."',
+    '[Error: client chain not configured. multicallAddress is required.]',
   )
 })
 
@@ -1064,12 +1121,12 @@ test('multicall contract not configured for chain', async () => {
       },
     ),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-    "Chain \\"Ethereum\\" does not support contract \\"multicall3\\".
+    [ChainDoesNotSupportContract: Chain "Ethereum" does not support contract "multicall3".
 
     This could be due to any of the following:
-    - The chain does not have the contract \\"multicall3\\" configured.
+    - The chain does not have the contract "multicall3" configured.
 
-    Version: viem@1.0.2"
+    Version: viem@1.0.2]
   `)
 })
 
@@ -1094,12 +1151,12 @@ test('multicall contract deployed on later block', async () => {
       ],
     }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-    "Chain \\"Localhost\\" does not support contract \\"multicall3\\".
+    [ChainDoesNotSupportContract: Chain "Localhost" does not support contract "multicall3".
 
     This could be due to any of the following:
-    - The contract \\"multicall3\\" was not deployed until block 14353601 (current block 69420).
+    - The contract "multicall3" was not deployed until block 14353601 (current block 69420).
 
-    Version: viem@1.0.2"
+    Version: viem@1.0.2]
   `)
 })
 
@@ -1128,7 +1185,7 @@ test('batchSize on client', async () => {
 })
 
 describe('GitHub repros', () => {
-  test('https://github.com/wagmi-dev/viem/issues/434', async () => {
+  test('https://github.com/wevm/viem/issues/434', async () => {
     const { contractAddress } = await deploy({
       abi: GH434.abi,
       bytecode: GH434.bytecode.object,

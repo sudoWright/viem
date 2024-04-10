@@ -46,6 +46,7 @@ test('InvalidSerializableTransactionError', () => {
     - a \`type\` to the Transaction, or
     - an EIP-1559 Transaction with \`maxFeePerGas\`, or
     - an EIP-2930 Transaction with \`gasPrice\` & \`accessList\`, or
+    - an EIP-4844 Transaction with \`blobs\`, \`blobVersionedHashes\`, \`sidecars\`, or
     - a Legacy Transaction with \`gasPrice\`
 
     Version: viem@1.0.2]
@@ -301,7 +302,7 @@ test('TransactionReceiptNotFoundError', () => {
   })
 
   expect(error.message).toMatchInlineSnapshot(`
-    "Transaction receipt with hash \\"0xa4b1f606b66105fa45cb5db23d2f6597075701e7f0e2367f4e6a39d17a8cf98a\\" could not be found. The Transaction may not be processed on a block yet.
+    "Transaction receipt with hash "0xa4b1f606b66105fa45cb5db23d2f6597075701e7f0e2367f4e6a39d17a8cf98a" could not be found. The Transaction may not be processed on a block yet.
 
     Version: viem@1.0.2"
   `)

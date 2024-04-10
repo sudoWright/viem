@@ -6,6 +6,7 @@ import { createPublicClient } from '../../clients/createPublicClient.js'
 import { http } from '../../clients/transports/http.js'
 
 import { localHttpUrl } from '~test/src/constants.js'
+import { createTestClient } from '~viem/index.js'
 import {
   estimateFeesPerGas,
   internal_estimateFeesPerGas,
@@ -29,6 +30,28 @@ test('legacy', async () => {
     getGasPrice(publicClient),
   ])
   expect(gasPrice).toBe((gasPrice_! * 120n) / 100n)
+})
+
+test('args: chain `estimateFeesPerGas` override (when null returned)', async () => {
+  const client = createTestClient({
+    transport: http(localHttpUrl),
+    mode: 'anvil',
+  })
+
+  const { maxFeePerGas, maxPriorityFeePerGas } = await estimateFeesPerGas(
+    client,
+    {
+      chain: {
+        ...anvilChain,
+        fees: {
+          estimateFeesPerGas: async () => null,
+        },
+      },
+    },
+  )
+
+  expect(maxFeePerGas).toBeTypeOf('bigint')
+  expect(maxPriorityFeePerGas).toBeTypeOf('bigint')
 })
 
 test('args: chain `estimateFeesPerGas` override', async () => {
@@ -162,9 +185,9 @@ test('args: chain `baseFeeMultiplier` override < 1', async () => {
       },
     }),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-    "\`baseFeeMultiplier\` must be greater than 1.
+    [BaseFeeScalarError: \`baseFeeMultiplier\` must be greater than 1.
 
-    Version: viem@1.0.2"
+    Version: viem@1.0.2]
   `)
 })
 
@@ -214,10 +237,10 @@ test('chain does not support eip1559', async () => {
   await expect(() =>
     estimateFeesPerGas(publicClient),
   ).rejects.toThrowErrorMatchingInlineSnapshot(`
-      "Chain does not support EIP-1559 fees.
+    [Eip1559FeesNotSupportedError: Chain does not support EIP-1559 fees.
 
-      Version: viem@1.0.2"
-    `)
+    Version: viem@1.0.2]
+  `)
 })
 
 describe('mainnet smoke', () => {
